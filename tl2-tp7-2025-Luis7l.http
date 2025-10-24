@@ -1,0 +1,6 @@
+@tl2_tp7_2025_Luis7l_HostAddress = http://localhost:5293
+
+GET {{tl2_tp7_2025_Luis7l_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
