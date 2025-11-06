@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Models;
+using Persistence; // 1. IMPORTANTE: Importar el namespace de tus repositorios
 
 namespace tl2_tp7_2025_Luis7l.Controllers;
 
@@ -7,7 +8,19 @@ namespace tl2_tp7_2025_Luis7l.Controllers;
 [Route("api/[controller]")]
 public class ProductoController : ControllerBase
 {
-    private static List<Producto> productos = new List<Producto>();
+    // 2. Eliminar la lista estática
+    // private static List<Producto> productos = new List<Producto>();
+
+    // 3. Declarar el repositorio
+    private readonly ProductoRepository _productoRepository;
+
+    // 4. Crear un constructor para inicializar el repositorio
+    public ProductoController()
+    {
+        _productoRepository = new ProductoRepository();
+    }
+
+    // 5. Modificar TODOS los métodos para usar el repositorio
 
     // POST /api/Producto
     [HttpPost]
@@ -16,22 +29,23 @@ public class ProductoController : ControllerBase
         if (nuevo == null)
             return BadRequest("El producto no puede ser nulo.");
 
-        // Generar un id autoincremental
-        nuevo.idProducto = productos.Count > 0 ? productos.Max(p => p.idProducto) + 1 : 1;
-        productos.Add(nuevo);
+        // Usa el repositorio para INSERTAR en la BD
+        int nuevoId = _productoRepository.Alta(nuevo);
+        nuevo.idProducto = nuevoId;
 
         return CreatedAtAction(nameof(ObtenerPorId), new { id = nuevo.idProducto }, nuevo);
     }
 
     // PUT /api/Producto/{id}
+    // Modifiqué este método para que coincida con lo que tu repositorio espera
     [HttpPut("{id}")]
-    public IActionResult ModificarDescripcion(int id, [FromBody] string nuevaDescripcion)
+    public IActionResult ModificarProducto(int id, [FromBody] Producto producto)
     {
-        var producto = productos.FirstOrDefault(p => p.idProducto == id);
-        if (producto == null)
-            return NotFound($"No se encontró un producto con ID {id}.");
+        if (id != producto.idProducto)
+            return BadRequest("Los IDs no coinciden.");
 
-        producto.descripcion = nuevaDescripcion;
+        // Llama al repositorio para hacer UPDATE en la BD
+        _productoRepository.actualizarProducto(id, producto);
         return Ok(producto);
     }
 
@@ -39,14 +53,18 @@ public class ProductoController : ControllerBase
     [HttpGet]
     public ActionResult<IEnumerable<Producto>> Listar()
     {
-        return Ok(productos);
+        // Llama al repositorio para hacer SELECT en la BD
+        return Ok(_productoRepository.ListarProductos());
     }
 
     // GET /api/Producto/{id}
     [HttpGet("{id}")]
     public ActionResult<Producto> ObtenerPorId(int id)
     {
-        var producto = productos.FirstOrDefault(p => p.idProducto == id);
+        // Llama al repositorio para hacer SELECT... WHERE en la BD
+        // (Asegúrate de implementar 'DetallesProductos' en tu repo, ver Paso 3)
+        var producto = _productoRepository.DetallesProductos(id); 
+        
         if (producto == null)
             return NotFound($"No se encontró un producto con ID {id}.");
 
@@ -57,11 +75,8 @@ public class ProductoController : ControllerBase
     [HttpDelete("{id}")]
     public IActionResult Eliminar(int id)
     {
-        var producto = productos.FirstOrDefault(p => p.idProducto == id);
-        if (producto == null)
-            return NotFound($"No se encontró un producto con ID {id}.");
-
-        productos.Remove(producto);
-        return NoContent();
+        // Llama al repositorio para hacer DELETE en la BD
+        _productoRepository.eliminarProducto(id);
+        return NoContent(); // 204 No Content
     }
 }

@@ -15,7 +15,7 @@ public class PresupuestoRepository
             using (var sqlCmd = new SqliteCommand(sql, connection))
             {
                 sqlCmd.Parameters.AddWithValue("$NombreDestinatario", obj.NombreDestinatario);
-                sqlCmd.Parameters.AddWithValue("$FechaCreacion", obj.fecha_Creacion);
+                sqlCmd.Parameters.AddWithValue("$fecha_Creacion", obj.fecha_Creacion);
                 sqlCmd.ExecuteNonQuery();
             }
             connection.Close();
@@ -88,9 +88,9 @@ public class PresupuestoRepository
         Presupuesto presupuestoEncontrado = new Presupuesto();
         using var connection = new SqliteConnection(connectionstring);
         connection.Open();
-        var sql = @"SELECT p.idPresupuesto,p.NombreDestinario,p.fechaCreacion,pr.idProducto,pr.Descripcion,pr.Precio,pr.Cantidad
+        var sql = @"SELECT p.idPresupuesto,p.NombreDestinatario,p.fechaCreacion,pr.idProducto,pr.Descripcion,pr.Precio,pd.Cantidad
                   FROM Presupuestos p
-                  LEFT JOIN PresupuestosDetalle pd using(idPrespuesto)
+                  LEFT JOIN PresupuestosDetalle pd using(idPresupuesto)
                   LEFT JOIN Productos pr using(idProducto)
                   WHERE idPresupuesto=$id";
 

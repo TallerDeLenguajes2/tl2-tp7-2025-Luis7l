@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Models;
+using Persistence; // 1. IMPORTANTE: Importar el namespace de tus repositorios
 
 namespace tl2_tp7_2025_Luis7l.Controllers;
 
@@ -7,14 +8,22 @@ namespace tl2_tp7_2025_Luis7l.Controllers;
 [Route("api/[controller]")]
 public class PresupuestosController : ControllerBase
 {
-    // Simulación de base de datos en memoria
-    private static List<Presupuesto> presupuestos = new List<Presupuesto>();
-    private static List<Producto> productos = new List<Producto>
+    // 2. Eliminar las listas estáticas
+    // private static List<Presupuesto> presupuestos = new List<Presupuesto>();
+    // private static List<Producto> productos = new List<Producto> { ... };
+
+    // 3. Declarar los repositorios
+    private readonly PresupuestoRepository _presupuestoRepository;
+    private readonly ProductoRepository _productoRepository; // Necesario para validar productos
+
+    // 4. Crear un constructor para inicializar los repositorios
+    public PresupuestosController()
     {
-        new Producto(1, "Notebook Lenovo", 850000),
-        new Producto(2, "Mouse inalámbrico", 15000),
-        new Producto(3, "Monitor Samsung 24\"", 210000)
-    };
+        _presupuestoRepository = new PresupuestoRepository();
+        _productoRepository = new ProductoRepository();
+    }
+
+    // 5. Modificar TODOS los métodos para usar los repositorios
 
     // POST /api/Presupuesto
     [HttpPost]
@@ -23,38 +32,43 @@ public class PresupuestosController : ControllerBase
         if (nuevo == null)
             return BadRequest("El presupuesto no puede ser nulo.");
 
-        nuevo.idPresupuesto = presupuestos.Count > 0 ? presupuestos.Max(p => p.idPresupuesto) + 1 : 1;
-        nuevo.detalle = new List<PresupuestosDetalle>();
-        presupuestos.Add(nuevo);
-
-        return CreatedAtAction(nameof(ObtenerPorId), new { id = nuevo.idPresupuesto }, nuevo);
+        // Usa el repositorio para INSERTAR en la BD
+        _presupuestoRepository.DarDeAltaPresupuesto(nuevo);
+        
+        // NOTA: Tu método DarDeAltaPresupuesto no devuelve el ID,
+        // así que no podemos retornarlo fácilmente. 
+        // Idealmente, debería devolver el ID como el repo de Productos.
+        
+        // Devolvemos el objeto (sin el ID de la BD)
+        return Created(nameof(CrearPresupuesto), nuevo);
     }
 
     // POST /api/Presupuesto/{id}/ProductoDetalle
     [HttpPost("{id}/ProductoDetalle")]
     public IActionResult AgregarProductoAlPresupuesto(int id, [FromBody] PresupuestosDetalle detalle)
     {
-        var presupuesto = presupuestos.FirstOrDefault(p => p.idPresupuesto == id);
-        if (presupuesto == null)
+        // Validamos que el presupuesto exista
+        var presupuesto = _presupuestoRepository.MostrarPresupuestoid(id);
+        if (presupuesto.idPresupuesto == -1) // Asumiendo que tu repo devuelve uno por defecto si no lo encuentra
             return NotFound($"No se encontró el presupuesto con ID {id}.");
 
-        var producto = productos.FirstOrDefault(p => p.idProducto == detalle.Producto.idProducto);
+        // Validamos que el producto exista
+        var producto = _productoRepository.DetallesProductos(detalle.Producto.idProducto);
         if (producto == null)
             return NotFound($"No se encontró el producto con ID {detalle.Producto.idProducto}.");
 
-        // Usar el producto real desde la lista
-        var nuevoDetalle = new PresupuestosDetalle(detalle.Cantidad, producto);
-        presupuesto.detalle.Add(nuevoDetalle);
+        // Usar el repositorio para insertar el detalle en la BD
+        _presupuestoRepository.InsertarDetalle(id, detalle.Producto.idProducto, detalle.Cantidad);
 
-        return Ok(presupuesto);
+        return Ok("Producto agregado al presupuesto");
     }
 
     // GET /api/Presupuesto/{id}
     [HttpGet("{id}")]
     public ActionResult<Presupuesto> ObtenerPorId(int id)
     {
-        var presupuesto = presupuestos.FirstOrDefault(p => p.idPresupuesto == id);
-        if (presupuesto == null)
+        var presupuesto = _presupuestoRepository.MostrarPresupuestoid(id);
+        if (presupuesto.idPresupuesto == -1) // Asumiendo que tu repo devuelve uno por defecto si no lo encuentra
             return NotFound($"No se encontró el presupuesto con ID {id}.");
 
         return Ok(presupuesto);
@@ -64,18 +78,14 @@ public class PresupuestosController : ControllerBase
     [HttpGet]
     public ActionResult<IEnumerable<Presupuesto>> Listar()
     {
-        return Ok(presupuestos);
+        return Ok(_presupuestoRepository.Listar());
     }
 
     // DELETE /api/Presupuesto/{id}
     [HttpDelete("{id}")]
     public IActionResult EliminarPresupuesto(int id)
     {
-        var presupuesto = presupuestos.FirstOrDefault(p => p.idPresupuesto == id);
-        if (presupuesto == null)
-            return NotFound($"No se encontró el presupuesto con ID {id}.");
-
-        presupuestos.Remove(presupuesto);
+        _presupuestoRepository.Eliminar(id);
         return NoContent();
     }
 }
